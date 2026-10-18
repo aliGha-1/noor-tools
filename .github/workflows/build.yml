@@ -14,36 +14,28 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: تنزيل ملفات المشروع
+      - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: تجهيز Java
+      - name: Setup Java
         uses: actions/setup-java@v4
         with:
           distribution: temurin
           java-version: '17'
 
-      - name: تجهيز Android SDK
+      - name: Setup Android SDK
         uses: android-actions/setup-android@v3
 
-      - name: تثبيت مكونات Android المطلوبة
-        shell: bash
-        run: |
-          set -e
-          sdkmanager "platforms;android-35" "build-tools;35.0.0"
+      - name: Install Android SDK components
+        run: sdkmanager "platforms;android-35" "build-tools;35.0.0"
 
-      - name: تجهيز ملفات مشروع Android
+      - name: Prepare Android project
         shell: bash
         run: |
           set -e
 
-          if [ -f "index.html" ]; then
-            APP_HTML="index.html"
-          elif [ -f "index-2.html" ]; then
-            APP_HTML="index-2.html"
-          else
-            echo "لم يتم العثور على ملف HTML."
-            echo "الملفات الموجودة:"
+          if [ ! -f "index-2.html" ]; then
+            echo "ERROR: index-2.html was not found in the repository root."
             ls -la
             exit 1
           fi
@@ -51,7 +43,7 @@ jobs:
           mkdir -p android/app/src/main/assets
           mkdir -p android/app/src/main/java/com/noortools/app
 
-          cp "$APP_HTML" android/app/src/main/assets/index.html
+          cp index-2.html android/app/src/main/assets/index.html
 
           cat > android/settings.gradle <<'EOF'
           pluginManagement {
@@ -61,6 +53,7 @@ jobs:
                   gradlePluginPortal()
               }
           }
+
           dependencyResolutionManagement {
               repositoriesMode.set(RepositoriesMode.FAIL_ON_PROJECT_REPOS)
               repositories {
@@ -68,6 +61,7 @@ jobs:
                   mavenCentral()
               }
           }
+
           rootProject.name = "NoorTools"
           include(":app")
           EOF
@@ -146,19 +140,18 @@ jobs:
           }
           EOF
 
-      - name: تجهيز Gradle
+      - name: Setup Gradle
         uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: '8.9'
 
-      - name: بناء APK
-        shell: bash
+      - name: Build APK
         run: |
           set -e
           cd android
           gradle assembleDebug
 
-      - name: حفظ ملف APK
+      - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
           name: Noor-Tools-APK
