@@ -3,7 +3,8 @@ name: Build Noor Tools APK
 on:
   workflow_dispatch:
   push:
-    branches: [main]
+    branches:
+      - main
 
 permissions:
   contents: read
@@ -25,18 +26,32 @@ jobs:
       - name: تجهيز Android SDK
         uses: android-actions/setup-android@v3
 
-      - name: تجهيز المشروع
+      - name: تثبيت مكونات Android المطلوبة
+        shell: bash
+        run: |
+          set -e
+          sdkmanager "platforms;android-35" "build-tools;35.0.0"
+
+      - name: تجهيز ملفات مشروع Android
         shell: bash
         run: |
           set -e
 
-          test -f index.html
+          if [ -f "index.html" ]; then
+            APP_HTML="index.html"
+          elif [ -f "index-2.html" ]; then
+            APP_HTML="index-2.html"
+          else
+            echo "لم يتم العثور على ملف HTML."
+            echo "الملفات الموجودة:"
+            ls -la
+            exit 1
+          fi
 
           mkdir -p android/app/src/main/assets
           mkdir -p android/app/src/main/java/com/noortools/app
-          mkdir -p android/app/src/main/res/drawable
 
-          cp index.html android/app/src/main/assets/index.html
+          cp "$APP_HTML" android/app/src/main/assets/index.html
 
           cat > android/settings.gradle <<'EOF'
           pluginManagement {
@@ -131,14 +146,15 @@ jobs:
           }
           EOF
 
-      - name: بناء APK
+      - name: تجهيز Gradle
         uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: '8.9'
 
-      - name: تجميع التطبيق
+      - name: بناء APK
         shell: bash
         run: |
+          set -e
           cd android
           gradle assembleDebug
 
