@@ -25,20 +25,26 @@ jobs:
 
       - name: Setup Android SDK
         uses: android-actions/setup-android@v3
+        continue-on-error: true
 
       - name: Install Android SDK components
-        run: sdkmanager "platforms;android-35" "build-tools;35.0.0"
+        shell: bash
+        run: |
+          set -e
+          SDKMANAGER="${ANDROID_HOME}/cmdline-tools/latest/bin/sdkmanager"
+          if [ ! -x "$SDKMANAGER" ]; then
+            SDKMANAGER="$(find "${ANDROID_HOME}/cmdline-tools" -name sdkmanager -type f | head -n 1)"
+          fi
+          test -x "$SDKMANAGER"
+          yes | "$SDKMANAGER" --licenses || true
+          "$SDKMANAGER" "platforms;android-35" "build-tools;35.0.0"
 
       - name: Prepare Android project
         shell: bash
         run: |
           set -e
 
-          if [ ! -f "index-2.html" ]; then
-            echo "ERROR: index-2.html was not found in the repository root."
-            ls -la
-            exit 1
-          fi
+          test -f index-2.html
 
           mkdir -p android/app/src/main/assets
           mkdir -p android/app/src/main/java/com/noortools/app
@@ -53,7 +59,6 @@ jobs:
                   gradlePluginPortal()
               }
           }
-
           dependencyResolutionManagement {
               repositoriesMode.set(RepositoriesMode.FAIL_ON_PROJECT_REPOS)
               repositories {
@@ -61,7 +66,6 @@ jobs:
                   mavenCentral()
               }
           }
-
           rootProject.name = "NoorTools"
           include(":app")
           EOF
@@ -146,6 +150,7 @@ jobs:
           gradle-version: '8.9'
 
       - name: Build APK
+        shell: bash
         run: |
           set -e
           cd android
