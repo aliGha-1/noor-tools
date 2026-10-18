@@ -39,6 +39,11 @@ jobs:
           yes | "$SDKMANAGER" --licenses || true
           "$SDKMANAGER" "platforms;android-35" "build-tools;35.0.0"
 
+      - name: Install ImageMagick
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y imagemagick
+
       - name: Prepare Android project
         shell: bash
         run: |
@@ -46,10 +51,32 @@ jobs:
 
           test -f index-2.html
 
+          ICON_FILE="$(find . -maxdepth 1 -type f \( -iname '*.jpg' -o -iname '*.jpeg' -o -iname '*.png' \) | head -n 1)"
+          if [ -z "$ICON_FILE" ]; then
+            echo "ERROR: No JPG, JPEG, or PNG icon found in repository root."
+            exit 1
+          fi
+
+          echo "Using app icon: $ICON_FILE"
+
           mkdir -p android/app/src/main/assets
           mkdir -p android/app/src/main/java/com/noortools/app
 
           cp index-2.html android/app/src/main/assets/index.html
+
+          for entry in "mdpi:48" "hdpi:72" "xhdpi:96" "xxhdpi:144" "xxxhdpi:192"; do
+            density="${entry%%:*}"
+            size="${entry##*:}"
+            dir="android/app/src/main/res/mipmap-${density}"
+            mkdir -p "$dir"
+
+            convert "$ICON_FILE" \
+              -auto-orient \
+              -resize "${size}x${size}^" \
+              -gravity center \
+              -extent "${size}x${size}" \
+              "$dir/ic_launcher.png"
+          done
 
           cat > android/settings.gradle <<'EOF'
           pluginManagement {
@@ -105,6 +132,7 @@ jobs:
               <application
                   android:theme="@android:style/Theme.Material.Light.NoActionBar"
                   android:label="نور تولز"
+                  android:icon="@mipmap/ic_launcher"
                   android:usesCleartextTraffic="true">
                   <activity
                       android:name="com.noortools.app.MainActivity"
